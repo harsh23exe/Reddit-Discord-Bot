@@ -1,3 +1,4 @@
+from asyncio.windows_events import NULL
 import discord
 import sys
 from discord import channel
@@ -56,23 +57,27 @@ except:
     sys.exit(1)
 
 
-bot = commands.Bot(command_prefix=botCommandPrefix)
+bot = commands.Bot(command_prefix=botCommandPrefix  )
 categories = ["top" , "new"  , "best" , "rising" , "controversial"]
 
 
 
 #fetches 5 posts from the subreddit
 def fetchPosts(subredditName: str, limit: int, categ: str):
-    if categ == "top":
-        return reddit.subreddit(subredditName).top(limit=limit)
-    elif categ == "new":
-        return reddit.subreddit(subredditName).new(limit=limit)
-    elif categ == "controversial":
-        return reddit.subreddit(subredditName).controversial(limit=limit)
-    elif categ == "rising":
-        return reddit.subreddit(subredditName).rising(limit=limit)
-    elif categ == "best":
-        return reddit.subreddit(subredditName).best(limit = limit)
+    try: 
+        if categ == "top":
+            return reddit.subreddit(subredditName).top(limit=limit)
+        elif categ == "new":
+            return reddit.subreddit(subredditName).new(limit=limit)
+        elif categ == "controversial":
+            return reddit.subreddit(subredditName).controversial(limit=limit)
+        elif categ == "rising":
+            return reddit.subreddit(subredditName).rising(limit=limit)
+        elif categ == "best":
+            return reddit.subreddit(subredditName).best(limit = limit)
+    except Exception as e:
+        logger.exception(e)
+        return NULL
 
 
 
@@ -85,7 +90,7 @@ def getEmbed(post):
         embed.description = post.selftext[:2040]
         if not post.is_self:
             if post.url.lower().endswith((".jpeg", ".jpg", ".png", ".gif")):
-                embed.set_thumbnail(url=post.url)
+                embed.set_image(url=post.url)
                 postTypeStr = "link (image)"
             else:
                 embed.add_field(name="Link from post:", value=post.url, inline=True)
@@ -97,7 +102,7 @@ def getEmbed(post):
         return embed
     except Exception as e:
         logger.exception(e)
-        return 
+        return NULL
 
 
 
@@ -118,13 +123,16 @@ async def hello(message : discord.Message):
 async def send(message : discord.Message , *args):
     if(len(args) != 2 or args[0] not in categories):
         logger.log("invalid Syntax")
-        help(message)
+        await message.channel.send("Invalid Syntax")
         return
 
     
     try: 
         for post in fetchPosts(args[1] , 5 , args[0]):
-            await message.channel.send(embed = getEmbed(post))
+            if(not(post == NULL)):
+                embedd = getEmbed(post)
+                if(not(embedd == NULL)):
+                    await message.channel.send(embed = embedd)
 
         logger.log("Posted "+ args[0] +" from r/" + args[1] + " for "+ str(message.author))
     except Exception as e:
@@ -132,7 +140,11 @@ async def send(message : discord.Message , *args):
         await message.channel.send("Error occured! Check the log file.")
 
     
-
+@bot.command()
+@commands.is_owner()
+async def shutdown(ctx):
+    await ctx.bot.logout()
+    exit(0)
 
     
 
